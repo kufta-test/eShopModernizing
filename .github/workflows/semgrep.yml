@@ -1,0 +1,50 @@
+name: Build and Semgrep
+
+on:
+  pull_request: {}
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - .github/workflows/semgrep.yml
+  schedule:
+    - cron: '20 17 * * *' # Adjust schedule as needed
+
+jobs:
+  build_and_scan:
+    name: Generate packages.lock.json and run Semgrep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.x'  # Use the version relevant to your project
+
+      - name: Install NuGet CLI (if using packages.config)
+        run: |
+          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
+
+      - name: Migrate packages.config to PackageReference (optional)
+        run: |
+          for file in $(find . -name 'packages.config'); do
+            dotnet migrate-legacy-csproj "$file"
+          done
+
+      - name: Enable lock file in .csproj files
+        run: |
+          find . -name '*.csproj' -exec sed -i 's|</Project>|  <PropertyGroup><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>\n</Project>|' {} +
+
+      - name: Restore packages and generate packages.lock.json
+        run: |
+          dotnet restore --use-lock-file
+
+      - name: Run Semgrep scan
+        uses: semgrep/semgrep-action@v1
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
