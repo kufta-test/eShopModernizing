@@ -1,39 +1,55 @@
-name: Semgrep
+name: NuGet and Semgrep Workflow
 
 on:
-  pull_request: {}
-  workflow_dispatch: {}
   push:
     branches:
       - main
-      - master
-    paths:
-      - .github/workflows/semgrep.yml
-  schedule:
-    - cron: '20 17 * * *' # Adjust schedule as needed
 
 jobs:
-  build_and_scan:
-    name: Generate packages.lock.json and run Semgrep
-    runs-on: ubuntu-latest
-
+  nuget-task:
+    runs-on: windows-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
 
-      - name: Set up .NET SDK
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '6.x'  # Use the version relevant to your project
+    - name: Download NuGet CLI
+      run: curl -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
-      - name: Restore packages and generate packages.lock.json
-        run: |
-          cd eShopModernizedMVCSolution/src/eShopModernizedMVC
-          dotnet restore -p:RestorePackagesWithLockFile=True
+    - name: Add NuGet to PATH
+      run: echo "::add-path::$(pwd)"
 
-      - name: Run Semgrep scan
-        run: |
-          pip install semgrep
-          semgrep ci
-        env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+    - name: Migrate packages.config to PackageReference
+      run: nuget.exe migrate packages.config
+
+    - name: Enable RestorePackagesWithLockFile
+      run: |
+        $fileContent = Get-Content .\MyProject.csproj
+        $newContent = $fileContent -replace "</PropertyGroup>", "<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>"
+        $newContent | Set-Content .\MyProject.csproj
+
+    - name: Restore Dependencies and Generate Lock File
+      run: dotnet restore
+
+    - name: Upload Updated Project
+      uses: actions/upload-artifact@v3
+      with:
+        name: updated-project
+        path: .
+        
+  semgrep-task:
+    runs-on: ubuntu-latest
+    needs: nuget-task
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Download Updated Project
+      uses: actions/download-artifact@v3
+      with:
+        name: updated-project
+
+    - name: Install Semgrep
+      run: pip install semgrep
+
+    - name: Run Semgrep Analysis
+      run: semgrep --config=p/ci .
