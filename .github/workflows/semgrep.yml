@@ -23,13 +23,21 @@ jobs:
       working-directory: eShopModernizedMVCSolution/src/eShopModernizedMVC
       run: |
         $packages = [xml](Get-Content packages.config)
-        $references = $packages.packages.package | ForEach-Object {
-          "<PackageReference Include='$_.id' Version='$_.version' />"
+        $references = @()
+
+        foreach ($package in $packages.packages.package) {
+            $id = $package.id
+            $version = $package.version
+            if ($id -and $version) {
+                $references += "<PackageReference Include='$id' Version='$version' />"
+            }
         }
-        $csproj = Get-Content eShopModernizedMVC.csproj
+
+        $csprojPath = ".\eShopModernizedMVC.csproj"
+        $csproj = Get-Content $csprojPath
         $csproj = $csproj -replace '<None Include="packages.config" />', ''
-        $csproj = $csproj -replace '</Project>', "<ItemGroup>$($references -join '')</ItemGroup></Project>"
-        $csproj | Set-Content eShopModernizedMVC.csproj
+        $csproj = $csproj -replace '</Project>', "<ItemGroup>$($references -join '`n')</ItemGroup></Project>"
+        $csproj | Set-Content $csprojPath
 
     - name: Enable RestorePackagesWithLockFile
       working-directory: eShopModernizedMVCSolution/src/eShopModernizedMVC
