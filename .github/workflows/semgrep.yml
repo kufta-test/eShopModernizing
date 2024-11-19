@@ -1,4 +1,4 @@
-name: Build and Semgrep
+name: Semgrep
 
 on:
   pull_request: {}
@@ -26,23 +26,9 @@ jobs:
         with:
           dotnet-version: '6.x'  # Use the version relevant to your project
 
-      - name: Install NuGet CLI (if using packages.config)
-        run: |
-          curl -L -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
-
-      - name: Migrate packages.config to PackageReference (optional)
-        run: |
-          for file in $(find . -name 'packages.config'); do
-            dotnet migrate-legacy-csproj "$file"
-          done
-
-      - name: Enable lock file in .csproj files
-        run: |
-          find . -name '*.csproj' -exec sed -i 's|</Project>|  <PropertyGroup><RestorePackagesWithLockFile>true</RestorePackagesWithLockFile></PropertyGroup>\n</Project>|' {} +
-
       - name: Restore packages and generate packages.lock.json
         run: |
-          dotnet restore --use-lock-file
+          dotnet restore -p:RestorePackagesWithLockFile=True
 
       - name: Run Semgrep scan
         uses: semgrep/semgrep-action@v1
