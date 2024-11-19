@@ -20,7 +20,8 @@ jobs:
       run: curl -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
     - name: Add NuGet to PATH
-      run: echo "::add-path::$(pwd)"
+      run: |
+        echo "$(pwd)" >> $env:GITHUB_PATH
 
     - name: Migrate packages.config to PackageReference
       run: nuget.exe migrate packages.config
