@@ -14,17 +14,22 @@ jobs:
 
     - name: Move to Project Directory
       working-directory: eShopModernizedMVCSolution/src/eShopModernizedMVC
-      run: pwd  # Verifies that we are in the correct directory
+      run: pwd
 
     - name: Download NuGet CLI
       run: curl -o nuget.exe https://dist.nuget.org/win-x86-commandline/latest/nuget.exe
 
-    - name: Add NuGet to PATH
-      run: |
-        echo "$(pwd)" >> $env:GITHUB_PATH
-
     - name: Migrate packages.config to PackageReference
-      run: nuget.exe migrate packages.config
+      working-directory: eShopModernizedMVCSolution/src/eShopModernizedMVC
+      run: |
+        $packages = [xml](Get-Content packages.config)
+        $references = $packages.packages.package | ForEach-Object {
+          "<PackageReference Include='$_.id' Version='$_.version' />"
+        }
+        $csproj = Get-Content eShopModernizedMVC.csproj
+        $csproj = $csproj -replace '<None Include="packages.config" />', ''
+        $csproj = $csproj -replace '</Project>', "<ItemGroup>$($references -join '')</ItemGroup></Project>"
+        $csproj | Set-Content eShopModernizedMVC.csproj
 
     - name: Enable RestorePackagesWithLockFile
       working-directory: eShopModernizedMVCSolution/src/eShopModernizedMVC
@@ -57,7 +62,7 @@ jobs:
 
     - name: Move to Project Directory
       working-directory: eShopModernizedMVCSolution/src/eShopModernizedMVC
-      run: pwd  # Verifies that we are in the correct directory
+      run: pwd
 
     - name: Install Semgrep
       run: pip install semgrep
