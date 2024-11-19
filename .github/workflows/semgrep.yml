@@ -28,7 +28,7 @@ jobs:
 
       - name: Restore packages and generate packages.lock.json
         run: |
-          cd src/Web/Web.csproj
+          cd eShopModernizing/src/Web/Web.csproj
           dotnet restore -p:RestorePackagesWithLockFile=True
 
       - name: Run Semgrep scan
